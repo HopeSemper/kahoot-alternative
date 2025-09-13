@@ -94,7 +94,6 @@ export default function HostGamePage({
 
   return (
     <main className="min-h-screen bg-[#111827] text-white">
-      {/* bandeau violet façon Kahoot */}
       <div className="h-2 w-full bg-[#5E17EB]" />
 
       {currentScreen === AdminScreens.lobby && (
@@ -116,7 +115,8 @@ export default function HostGamePage({
 
       {currentScreen === AdminScreens.result && quizSet && (
         <section className="min-h-[calc(100vh-0.5rem)] p-4 md:p-8">
-          <Results participants={participants} quizSet={quizSet} gameId={gameId} />
+          {/* ⬇️ plus de prop `participants` ici */}
+          <Results quizSet={quizSet} gameId={gameId} />
         </section>
       )}
     </main>
