@@ -1,6 +1,7 @@
+'use client'
+
 import { Participant, supabase } from '@/types/types'
-import { on } from 'events'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 
 export default function Lobby({
   gameId,
@@ -10,118 +11,74 @@ export default function Lobby({
   onRegisterCompleted: (participant: Participant) => void
 }) {
   const [participant, setParticipant] = useState<Participant | null>(null)
+  const [nickname, setNickname] = useState('')
+  const [sending, setSending] = useState(false)
 
-  useEffect(() => {
-    const fetchParticipant = async () => {
-      let userId: string | null = null
+  const onFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!nickname.trim()) return
+    setSending(true)
 
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession()
+    const { data, error } = await supabase
+      .from('participants')
+      .insert({ nickname: nickname.trim(), game_id: gameId })
+      .select()
+      .single()
 
-      if (sessionData.session) {
-        userId = sessionData.session?.user.id ?? null
-      } else {
-        const { data, error } = await supabase.auth.signInAnonymously()
-        if (error) console.error(error)
-        userId = data?.user?.id ?? null
-      }
+    setSending(false)
 
-      if (!userId) {
+    if (error) {
+      // Gestion simple du doublon de pseudo dans la même partie
+      if (error.message?.toLowerCase().includes('duplicate')) {
+        alert('Ce pseudo est déjà pris pour cette partie. Essaie un autre 😉')
         return
       }
-
-      const { data: participantData, error } = await supabase
-        .from('participants')
-        .select()
-        .eq('game_id', gameId)
-        .eq('user_id', userId)
-        .maybeSingle()
-
-      if (error) {
-        return alert(error.message)
-      }
-
-      if (participantData) {
-        setParticipant(participantData)
-        onRegisterCompleted(participantData)
-      }
+      console.error(error)
+      alert("Impossible de rejoindre la partie.")
+      return
     }
 
-    fetchParticipant()
-  }, [gameId, onRegisterCompleted])
+    setParticipant(data as Participant)
+    onRegisterCompleted(data as Participant)
+  }
 
   return (
-    <div className="bg-green-500 flex justify-center items-center min-h-screen">
-      <div className="bg-black p-12">
+    <div className="min-h-[calc(100vh-0.5rem)] flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
         {!participant && (
-          <Register
-            gameId={gameId}
-            onRegisterCompleted={(participant) => {
-              onRegisterCompleted(participant)
-              setParticipant(participant)
-            }}
-          />
+          <>
+            <h1 className="text-2xl font-extrabold text-[#111827]">Rejoindre la partie</h1>
+            <p className="mt-2 text-[#6B7280]">Entre ton pseudo pour participer.</p>
+
+            <form onSubmit={onFormSubmit} className="mt-6 space-y-3">
+              <input
+                className="w-full rounded-xl border border-[#E5E7EB] px-4 py-3 outline-none focus:ring-2 focus:ring-[#5E17EB]"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.currentTarget.value)}
+                placeholder="Ton pseudo"
+                maxLength={20}
+              />
+              <button
+                disabled={sending}
+                className="w-full rounded-xl bg-[#5E17EB] text-white font-semibold px-4 py-3 hover:opacity-90 transition disabled:opacity-60"
+              >
+                {sending ? 'Connexion…' : 'Rejoindre'}
+              </button>
+            </form>
+          </>
         )}
 
         {participant && (
-          <div className="text-white max-w-md">
-            <h1 className="text-xl pb-4">Welcome {participant.nickname}！</h1>
-            <p>
-              You have been registered and your nickname should show up on the
-              admin screen. Please sit back and wait until the game master
-              starts the game.
+          <div className="text-[#111827]">
+            <h2 className="text-xl font-extrabold">Bienvenue {participant.nickname} 🎉</h2>
+            <p className="mt-2 text-[#6B7280]">
+              Tu es inscrit ! Ton pseudo s’affiche sur l’écran de l’animateur.
+              Attends que la partie commence.
             </p>
           </div>
         )}
       </div>
     </div>
-  )
-}
-
-function Register({
-  onRegisterCompleted,
-  gameId,
-}: {
-  onRegisterCompleted: (player: Participant) => void
-  gameId: string
-}) {
-  const onFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setSending(true)
-
-    if (!nickname) {
-      return
-    }
-    const { data: participant, error } = await supabase
-      .from('participants')
-      .insert({ nickname, game_id: gameId })
-      .select()
-      .single()
-
-    if (error) {
-      setSending(false)
-
-      return alert(error.message)
-    }
-
-    onRegisterCompleted(participant)
-  }
-
-  const [nickname, setNickname] = useState('')
-  const [sending, setSending] = useState(false)
-
-  return (
-    <form onSubmit={(e) => onFormSubmit(e)}>
-      <input
-        className="p-2 w-full border border-black text-black"
-        type="text"
-        onChange={(val) => setNickname(val.currentTarget.value)}
-        placeholder="Nickname"
-        maxLength={20}
-      />
-      <button disabled={sending} className="w-full py-2 bg-green-500 mt-4">
-        Join
-      </button>
-    </form>
   )
 }
