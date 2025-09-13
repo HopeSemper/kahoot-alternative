@@ -124,9 +124,9 @@ export default function Quiz({
 
       {/* Titre */}
       <div className="text-center">
-        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
-          {question.body}
-        </h2>
+        <h2 className="pb-4 text-3xl bg-white text-[#111827] font-bold mx-24 my-12 p-4 rounded inline-block">
+  {question.body}
+</h2>
       </div>
 
       {/* Image (facultative) */}
