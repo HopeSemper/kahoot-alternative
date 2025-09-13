@@ -2,11 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: #111827;     /* fond */
+  --color-primary: #5E17EB; /* violet */
+}
+
+html, body {
+  height: 100%;
+}
+
 body {
-    padding: 0;
-    /* background-color: black;
-    background-image: url('/background.jpg');
-    background-position: center;
-    background-size: cover;
-    background-repeat: no-repeat; */
+  padding: 0;
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Petites aides d’UI optionnelles */
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-xl px-6 py-3 text-white font-semibold;
+  background: var(--color-primary);
+}
+.btn-primary:hover { @apply opacity-90; }
+
+.card {
+  @apply bg-white rounded-2xl shadow-2xl;
 }
