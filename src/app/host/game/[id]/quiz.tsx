@@ -1,6 +1,6 @@
 'use client'
 
-import { TIME_TIL_CHOICE_REVEAL } from '@/constants'
+import { TIME_TIL_CHOICE_REVEAL, QUESTION_ANSWER_TIME } from '@/constants'
 import { Answer, Participant, Question, supabase } from '@/types/types'
 import { useEffect, useRef, useState } from 'react'
 import { CountdownCircleTimer } from 'react-countdown-circle-timer'
@@ -62,6 +62,9 @@ export default function Quiz({
     }
   }, [question.id, participants.length, gameId])
 
+  // Durée en secondes pour le composant de timer
+  const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
+
   return (
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
       {/* bouton suivant */}
@@ -91,9 +94,14 @@ export default function Quiz({
               <CountdownCircleTimer
                 onComplete={() => onTimeUp()}
                 isPlaying
-                duration={20}
+                duration={durationSec} // ✅ 30 s (via constante)
                 colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
-                colorsTime={[12, 7, 2, 0]}
+                colorsTime={[
+                  Math.floor(durationSec * 0.6), // 60%
+                  Math.floor(durationSec * 0.25), // 25%
+                  Math.floor(durationSec * 0.10), // 10%
+                  0,
+                ]}
               >
                 {({ remainingTime }) => remainingTime}
               </CountdownCircleTimer>
