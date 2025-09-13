@@ -22,6 +22,13 @@ export default function Quiz({
   const answerStateRef = useRef<Answer[]>()
   answerStateRef.current = answers
 
+  // NEW: leaderboard provisoire (TOP 5) après chaque question
+  const [leaderboard, setLeaderboard] = useState<
+    { id: string; nickname: string; total: number }[]
+  >([])
+
+  const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
+
   const getNextQuestion = async () => {
     const isLast = questionCount === question.order + 1
     const updateData = isLast
@@ -37,10 +44,40 @@ export default function Quiz({
     await supabase.from('games').update({ is_answer_revealed: true }).eq('id', gameId)
   }
 
+  // NEW: calcule le classement cumulé jusqu’à la question en cours
+  async function fetchLeaderboard(gameId: string, currentOrder: number) {
+    const { data, error } = await supabase
+      .from('answers')
+      .select(`
+        score,
+        participant:participants ( id, nickname, game_id ),
+        question:questions ( order )
+      `)
+      .eq('participants.game_id', gameId)
+
+    if (error) {
+      console.error(error)
+      return []
+    }
+
+    const map = new Map<string, { id: string; nickname: string; total: number }>()
+    for (const row of data) {
+      if (!row.question || row.question.order > currentOrder) continue
+      const p = row.participant
+      if (!p) continue
+      const cur = map.get(p.id) ?? { id: p.id, nickname: p.nickname, total: 0 }
+      cur.total += row.score ?? 0
+      map.set(p.id, cur)
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total).slice(0, 5)
+  }
+
   useEffect(() => {
+    // reset de la question
     setIsAnswerRevealed(false)
     setHasShownChoices(false)
     setAnswers([])
+    setLeaderboard([])
 
     const t = setTimeout(() => setHasShownChoices(true), TIME_TIL_CHOICE_REVEAL)
 
@@ -62,8 +99,14 @@ export default function Quiz({
     }
   }, [question.id, participants.length, gameId])
 
-  // Durée en secondes pour le composant de timer
-  const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
+  // NEW: quand on révèle la réponse, on calcule et on affiche le TOP 5
+  useEffect(() => {
+    if (isAnswerRevealed) {
+      fetchLeaderboard(gameId, question.order).then(setLeaderboard)
+    } else {
+      setLeaderboard([])
+    }
+  }, [isAnswerRevealed, gameId, question.order])
 
   return (
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
@@ -79,27 +122,38 @@ export default function Quiz({
         )}
       </div>
 
-      {/* titre */}
+      {/* Titre */}
       <div className="text-center">
-        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-12 p-4 rounded inline-block md:text-3xl md:px-24">
+        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
           {question.body}
         </h2>
       </div>
 
+      {/* Image (facultative) */}
+      {question.image_url && (
+        <div className="mx-auto my-4 max-w-4xl px-4">
+          <img
+            src={question.image_url}
+            alt="Illustration"
+            className="w-full rounded-xl shadow-lg object-cover max-h-[360px]"
+          />
+        </div>
+      )}
+
       <div className="flex-grow text-white px-8">
-        {/* timer + compteur réponses */}
+        {/* timer + compteur réponses pendant la phase de réponse */}
         {hasShownChoices && !isAnswerRevealed && (
           <div className="flex justify-between items-center mb-6">
             <div className="text-5xl">
               <CountdownCircleTimer
                 onComplete={() => onTimeUp()}
                 isPlaying
-                duration={durationSec} // ✅ 30 s (via constante)
+                duration={durationSec}
                 colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
                 colorsTime={[
-                  Math.floor(durationSec * 0.6), // 60%
-                  Math.floor(durationSec * 0.25), // 25%
-                  Math.floor(durationSec * 0.10), // 10%
+                  Math.floor(durationSec * 0.6),
+                  Math.floor(durationSec * 0.25),
+                  Math.floor(durationSec * 0.10),
                   0,
                 ]}
               >
@@ -115,30 +169,47 @@ export default function Quiz({
 
         {/* histogramme à la révélation */}
         {isAnswerRevealed && (
-          <div className="flex justify-center">
-            {question.choices.map((choice, index) => {
-              const count = answers.filter((a) => a.choice_id === choice.id).length
-              const pct = (count * 100) / (answers.length || 1)
-              const color =
-                index === 0 ? 'bg-red-500' :
-                index === 1 ? 'bg-blue-500' :
-                index === 2 ? 'bg-yellow-500' : 'bg-green-500'
-              return (
-                <div key={choice.id} className="mx-2 h-48 w-24 flex flex-col items-stretch justify-end">
-                  <div className="flex-grow relative">
-                    <div style={{ height: `${pct}%` }} className={`absolute bottom-0 left-0 right-0 mb-1 rounded-t ${color}`} />
+          <>
+            <div className="flex justify-center">
+              {question.choices.map((choice, index) => {
+                const count = answers.filter((a) => a.choice_id === choice.id).length
+                const pct = (count * 100) / (answers.length || 1)
+                const color =
+                  index === 0 ? 'bg-red-500' :
+                  index === 1 ? 'bg-blue-500' :
+                  index === 2 ? 'bg-yellow-500' : 'bg-green-500'
+                return (
+                  <div key={choice.id} className="mx-2 h-48 w-24 flex flex-col items-stretch justify-end">
+                    <div className="flex-grow relative">
+                      <div style={{ height: `${pct}%` }} className={`absolute bottom-0 left-0 right-0 mb-1 rounded-t ${color}`} />
+                    </div>
+                    <div className={`mt-1 text-white text-lg text-center py-2 rounded-b ${color}`}>
+                      {count}
+                    </div>
                   </div>
-                  <div className={`mt-1 text-white text-lg text-center py-2 rounded-b ${color}`}>
-                    {count}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+
+            {/* NEW: Classement provisoire (TOP 5) sous l’histogramme */}
+            {leaderboard.length > 0 && (
+              <div className="mt-8 w-full max-w-xl mx-auto">
+                <h3 className="text-center text-xl font-bold mb-3">Classement provisoire</h3>
+                <ul className="bg-white/10 rounded-xl divide-y divide-white/10">
+                  {leaderboard.map((p, i) => (
+                    <li key={p.id} className="flex justify-between px-4 py-3">
+                      <span className="font-semibold">{i + 1}. {p.nickname}</span>
+                      <span className="font-mono">{p.total} pts</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* choix (aperçu host) */}
+      {/* Choix (aperçu host) */}
       {hasShownChoices && (
         <div className="flex justify-between flex-wrap p-4">
           {question.choices.map((choice, index) => {
