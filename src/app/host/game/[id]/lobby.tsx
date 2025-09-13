@@ -1,60 +1,104 @@
+'use client'
+
 import { Participant, supabase } from '@/types/types'
 import { useQRCode } from 'next-qrcode'
+import { useMemo, useState } from 'react'
 
-export default function Lobby({
-  participants: participants,
-  gameId,
-}: {
+type Props = {
   participants: Participant[]
   gameId: string
-}) {
+}
+
+export default function Lobby({ participants, gameId }: Props) {
   const { Canvas } = useQRCode()
 
+  // Domaine canonique : variable d'env (recommandé) sinon origin du navigateur
+  const BASE =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
+
+  // URL encodée dans le QR : route joueur /game/[id]
+  const joinUrl = useMemo(() => `${BASE}/game/${gameId}`, [BASE, gameId])
+
+  const [starting, setStarting] = useState(false)
+
   const onClickStartGame = async () => {
-    const { data, error } = await supabase
-      .from('games')
-      .update({ phase: 'quiz' })
-      .eq('id', gameId)
-    if (error) {
-      return alert(error.message)
+    try {
+      setStarting(true)
+      const { error } = await supabase
+        .from('games')
+        .update({
+          phase: 'quiz',
+          current_question_sequence: 0,
+          is_answer_revealed: false,
+        })
+        .eq('id', gameId)
+      if (error) {
+        console.error(error)
+        alert("Impossible de démarrer la partie")
+      }
+    } finally {
+      setStarting(false)
     }
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="flex justify-between m-auto bg-black p-12">
-        <div className="w-96">
-          <div className="flex justify-start flex-wrap pb-4">
-            {participants.map((participant) => (
-              <div
-                className="text-xl m-2 p-2 bg-green-500"
-                key={participant.id}
-              >
-                {participant.nickname}
-              </div>
-            ))}
-          </div>
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="bg-black rounded-3xl shadow-2xl p-6 md:p-10 grid md:grid-cols-2 gap-8 items-center">
+        {/* Colonne gauche : bouton / infos / joueurs */}
+        <div className="space-y-6">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white">
+            Salle d’attente
+          </h1>
+          <p className="text-white/70">
+            Demandez aux invités de scanner le QR ou d’aller sur{' '}
+            <span className="font-semibold">{BASE.replace('https://', '')}</span>{' '}
+            puis d’entrer le code affiché.
+          </p>
 
           <button
-            className="mx-auto bg-white py-4 px-12 block text-black"
             onClick={onClickStartGame}
+            disabled={starting}
+            className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-white font-semibold bg-[#5E17EB] hover:opacity-90 transition disabled:opacity-60"
           >
-            Start Game
+            {starting ? 'Démarrage…' : 'Démarrer la partie'}
           </button>
+
+          <div className="pt-4">
+            <p className="text-sm text-white/60 mb-2">
+              Joueurs connectés : <span className="font-semibold">{participants.length}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {participants.map((p) => (
+                <span
+                  key={p.id}
+                  className="text-sm bg-white/10 px-3 py-1 rounded-full border border-white/10 text-white"
+                >
+                  {p.nickname}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="pl-4">
-          {/* <img src="/qr.png" alt="QR code" /> */}
+
+        {/* Colonne droite : QR code */}
+        <div className="flex items-center justify-center">
           <Canvas
-            text={`https://kahoot-alternative.vercel.app/game/${gameId}`}
+            text={joinUrl}
             options={{
               errorCorrectionLevel: 'M',
               margin: 3,
               scale: 4,
-              width: 400,
+              width: 520,
+              color: { dark: '#000000', light: '#ffffff' },
             }}
           />
         </div>
       </div>
+
+      <p className="text-center text-white/50 text-sm mt-4">
+        Astuce : garde toujours le même domaine en Production pour éviter toute confusion.
+      </p>
     </div>
   )
 }
