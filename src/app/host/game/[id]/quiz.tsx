@@ -22,10 +22,11 @@ export default function Quiz({
   const answerStateRef = useRef<Answer[]>()
   answerStateRef.current = answers
 
-  // NEW: leaderboard provisoire (TOP 5) après chaque question
+  // Classement provisoire (TOP 10) cumulé après révélation (via vue game_results)
   const [leaderboard, setLeaderboard] = useState<
-    { id: string; nickname: string; total: number }[]
+    { participant_id: string; nickname: string; total_score: number }[]
   >([])
+  const [lbLoading, setLbLoading] = useState(false)
 
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
@@ -44,32 +45,17 @@ export default function Quiz({
     await supabase.from('games').update({ is_answer_revealed: true }).eq('id', gameId)
   }
 
-  // NEW: calcule le classement cumulé jusqu’à la question en cours
-  async function fetchLeaderboard(gameId: string, currentOrder: number) {
+  // Lecture du classement cumulé (inclut les joueurs à 0)
+  const fetchLeaderboard = async () => {
+    setLbLoading(true)
     const { data, error } = await supabase
-      .from('answers')
-      .select(`
-        score,
-        participant:participants ( id, nickname, game_id ),
-        question:questions ( order )
-      `)
-      .eq('participants.game_id', gameId)
-
-    if (error) {
-      console.error(error)
-      return []
-    }
-
-    const map = new Map<string, { id: string; nickname: string; total: number }>()
-    for (const row of data) {
-      if (!row.question || row.question.order > currentOrder) continue
-      const p = row.participant
-      if (!p) continue
-      const cur = map.get(p.id) ?? { id: p.id, nickname: p.nickname, total: 0 }
-      cur.total += row.score ?? 0
-      map.set(p.id, cur)
-    }
-    return [...map.values()].sort((a, b) => b.total - a.total).slice(0, 5)
+      .from('game_results')
+      .select()
+      .eq('game_id', gameId)
+      .order('total_score', { ascending: false })
+      .limit(10)
+    if (!error && data) setLeaderboard(data)
+    setLbLoading(false)
   }
 
   useEffect(() => {
@@ -81,6 +67,7 @@ export default function Quiz({
 
     const t = setTimeout(() => setHasShownChoices(true), TIME_TIL_CHOICE_REVEAL)
 
+    // écoute des réponses en direct pour cette question
     const channel = supabase
       .channel('answers')
       .on(
@@ -88,6 +75,7 @@ export default function Quiz({
         { event: 'INSERT', schema: 'public', table: 'answers', filter: `question_id=eq.${question.id}` },
         (payload) => {
           setAnswers((cur) => [...cur, payload.new as Answer])
+          // si tous les participants ont répondu, on révèle automatiquement
           if ((answerStateRef.current?.length ?? 0) + 1 === participants.length) onTimeUp()
         }
       )
@@ -99,14 +87,15 @@ export default function Quiz({
     }
   }, [question.id, participants.length, gameId])
 
-  // NEW: quand on révèle la réponse, on calcule et on affiche le TOP 5
+  // À la révélation : charger le TOP 10 cumulé
   useEffect(() => {
     if (isAnswerRevealed) {
-      fetchLeaderboard(gameId, question.order).then(setLeaderboard)
+      fetchLeaderboard()
     } else {
       setLeaderboard([])
     }
-  }, [isAnswerRevealed, gameId, question.order])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAnswerRevealed])
 
   return (
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
@@ -124,9 +113,9 @@ export default function Quiz({
 
       {/* Titre */}
       <div className="text-center">
-        <h2 className="pb-4 text-3xl bg-white text-[#111827] font-bold mx-24 my-12 p-4 rounded inline-block">
-  {question.body}
-</h2>
+        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
+          {question.body}
+        </h2>
       </div>
 
       {/* Image (facultative) */}
@@ -191,20 +180,49 @@ export default function Quiz({
               })}
             </div>
 
-            {/* NEW: Classement provisoire (TOP 5) sous l’histogramme */}
-            {leaderboard.length > 0 && (
-              <div className="mt-8 w-full max-w-xl mx-auto">
-                <h3 className="text-center text-xl font-bold mb-3">Classement provisoire</h3>
-                <ul className="bg-white/10 rounded-xl divide-y divide-white/10">
-                  {leaderboard.map((p, i) => (
-                    <li key={p.id} className="flex justify-between px-4 py-3">
-                      <span className="font-semibold">{i + 1}. {p.nickname}</span>
-                      <span className="font-mono">{p.total} pts</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* Classement provisoire (TOP 10) sous l’histogramme */}
+            <div className="mt-8 w-full max-w-2xl mx-auto">
+              <h3 className="text-center text-xl font-bold mb-3">
+                Classement (cumul après cette question)
+              </h3>
+
+              {lbLoading ? (
+                <div className="text-center text-white/70">Mise à jour du classement…</div>
+              ) : leaderboard.length === 0 ? (
+                <div className="text-center text-white/70">Aucune réponse encore.</div>
+              ) : (
+                <>
+                  {/* Podium top 3 */}
+                  <div className="flex items-end justify-center gap-4 mb-6">
+                    {leaderboard.slice(0, 3).map((r, idx) => {
+                      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'
+                      const height = idx === 0 ? 'h-28' : idx === 1 ? 'h-24' : 'h-20'
+                      return (
+                        <div key={r.participant_id} className="flex flex-col items-center text-white">
+                          <div className={`w-28 ${height} bg-white/10 backdrop-blur rounded-t-2xl flex items-center justify-center text-2xl font-bold`}>
+                            {medal}
+                          </div>
+                          <div className="w-28 bg-white/15 rounded-b-2xl text-center py-2">
+                            <div className="text-sm font-semibold truncate">{r.nickname}</div>
+                            <div className="text-xs">{r.total_score} pts</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* 4ème+ en liste */}
+                  <ul className="bg-white/10 rounded-xl divide-y divide-white/10">
+                    {leaderboard.slice(3).map((r, i) => (
+                      <li key={r.participant_id} className="flex justify-between px-4 py-3">
+                        <span className="font-semibold">{i + 4}. {r.nickname}</span>
+                        <span className="font-mono">{r.total_score} pts</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
           </>
         )}
       </div>
