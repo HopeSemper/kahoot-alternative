@@ -20,6 +20,7 @@ export default function Quiz({
   const [hasShownChoices, setHasShownChoices] = useState(false)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
 
+  // reset à chaque nouvelle question
   useEffect(() => {
     setChosenChoice(null)
     setHasShownChoices(false)
@@ -39,7 +40,7 @@ export default function Quiz({
     const { error } = await supabase.from('answers').insert({
       participant_id: participantId,
       question_id: question.id,
-      // ⚠️ Garde cette ligne seulement si ta table answers a la colonne choice_id :
+      // ⚠️ Si ta table `answers` a une colonne `choice_id`, garde la ligne suivante :
       // choice_id: choice.id,
       score,
     })
@@ -50,6 +51,8 @@ export default function Quiz({
       alert("Désolé, on n'a pas pu enregistrer ta réponse.")
     }
   }
+
+  const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
   return (
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
@@ -88,9 +91,27 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Choix de réponses */}
+      {/* Choix + Chrono de réponse 30s */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-stretch">
+          {/* Chrono visuel 30s (affichage uniquement ; la fin réelle est pilotée par l’Host via Realtime) */}
+          <div className="flex justify-center mb-6">
+            <CountdownCircleTimer
+              isPlaying
+              duration={durationSec} // ✅ 30s via la constante
+              colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
+              colorsTime={[
+                Math.floor(durationSec * 0.6),
+                Math.floor(durationSec * 0.25),
+                Math.floor(durationSec * 0.10),
+                0,
+              ]}
+              onComplete={() => undefined}
+            >
+              {({ remainingTime }) => remainingTime}
+            </CountdownCircleTimer>
+          </div>
+
           <div className="flex-grow" />
           <div className="flex justify-between flex-wrap p-4 gap-y-2">
             {question.choices.map((choice, index) => (
