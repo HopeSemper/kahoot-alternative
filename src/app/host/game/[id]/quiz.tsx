@@ -22,7 +22,6 @@ export default function Quiz({
   const answerStateRef = useRef<Answer[]>()
   answerStateRef.current = answers
 
-  // Classement provisoire (TOP 10) cumulé après révélation (via vue game_results)
   const [leaderboard, setLeaderboard] = useState<
     { participant_id: string; nickname: string; total_score: number }[]
   >([])
@@ -45,7 +44,6 @@ export default function Quiz({
     await supabase.from('games').update({ is_answer_revealed: true }).eq('id', gameId)
   }
 
-  // Lecture du classement cumulé (inclut les joueurs à 0)
   const fetchLeaderboard = async () => {
     setLbLoading(true)
     const { data, error } = await supabase
@@ -60,7 +58,6 @@ export default function Quiz({
   }
 
   useEffect(() => {
-    // reset de la question
     setIsAnswerRevealed(false)
     setHasShownChoices(false)
     setAnswers([])
@@ -68,7 +65,6 @@ export default function Quiz({
 
     const t = setTimeout(() => setHasShownChoices(true), TIME_TIL_CHOICE_REVEAL)
 
-    // écoute des réponses en direct pour cette question
     const channel = supabase
       .channel('answers')
       .on(
@@ -76,7 +72,6 @@ export default function Quiz({
         { event: 'INSERT', schema: 'public', table: 'answers', filter: `question_id=eq.${question.id}` },
         (payload) => {
           setAnswers((cur) => [...cur, payload.new as Answer])
-          // si tous les participants ont répondu, on révèle automatiquement
           if ((answerStateRef.current?.length ?? 0) + 1 === participants.length) onTimeUp()
         }
       )
@@ -88,14 +83,9 @@ export default function Quiz({
     }
   }, [question.id, participants.length, gameId])
 
-  // À la révélation : charger le TOP 10 cumulé
   useEffect(() => {
-    if (isAnswerRevealed) {
-      fetchLeaderboard()
-    } else {
-      setLeaderboard([])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (isAnswerRevealed) fetchLeaderboard()
+    else setLeaderboard([])
   }, [isAnswerRevealed])
 
   return (
@@ -112,15 +102,17 @@ export default function Quiz({
         )}
       </div>
 
-      {/* Titre (forcé noir, wrap, fallback) */}
-      <div className="text-center">
+      {/* Titre (forcé noir via style inline, wrap, largeur contrôlée) */}
+      <div className="flex justify-center">
         <h2
           className="
-            inline-block mx-4 my-6 md:my-12 px-6 md:px-24 py-4
+            my-6 md:my-10 px-6 md:px-10 py-4
             bg-white rounded-2xl shadow
             text-xl md:text-3xl font-extrabold leading-snug
-            !text-[#111827] whitespace-pre-wrap break-words
+            whitespace-pre-wrap break-words text-center
+            max-w-4xl w-[calc(100%-2rem)]
           "
+          style={{ color: '#111827' }}
         >
           {question.body?.trim() ? question.body : '— Question —'}
         </h2>
@@ -188,7 +180,7 @@ export default function Quiz({
               })}
             </div>
 
-            {/* Classement provisoire (TOP 10) sous l’histogramme */}
+            {/* Classement provisoire (TOP 10) */}
             <div className="mt-8 w-full max-w-2xl mx-auto">
               <h3 className="text-center text-xl font-bold mb-3">
                 Classement (cumul après cette question)
@@ -200,7 +192,6 @@ export default function Quiz({
                 <div className="text-center text-white/70">Aucune réponse encore.</div>
               ) : (
                 <>
-                  {/* Podium top 3 */}
                   <div className="flex items-end justify-center gap-4 mb-6">
                     {leaderboard.slice(0, 3).map((r, idx) => {
                       const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'
@@ -219,7 +210,6 @@ export default function Quiz({
                     })}
                   </div>
 
-                  {/* 4ème+ en liste */}
                   <ul className="bg-white/10 rounded-xl divide-y divide-white/10">
                     {leaderboard.slice(3).map((r, i) => (
                       <li key={r.participant_id} className="flex justify-between px-4 py-3">
