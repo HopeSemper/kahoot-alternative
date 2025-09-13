@@ -51,7 +51,7 @@ export default function HostHome() {
               </div>
               <div className="bg-[#F9FAFB] rounded-xl p-4">
                 <p className="text-sm text-[#6B7280]">
-                  3) Lance la question, révèle la bonne réponse, et surveille le <span className="font-semibold">classement</span>.
+                  3) Lance la question, révèle la réponse, surveille le <span className="font-semibold">classement</span>.
                 </p>
               </div>
             </div>
@@ -60,7 +60,7 @@ export default function HostHome() {
 
         {/* Footer discret */}
         <p className="mt-6 text-center text-sm text-white/60">
-          Astuce : pour éviter toute erreur, utilise toujours le même domaine lors des tests.
+          Astuce : garde toujours le même domaine en Production pour éviter les erreurs de connexion.
         </p>
       </div>
     </main>
