@@ -54,6 +54,7 @@ export default function Quiz({
       .eq('game_id', gameId)
       .order('total_score', { ascending: false })
       .limit(10)
+
     if (!error && data) setLeaderboard(data)
     setLbLoading(false)
   }
@@ -111,10 +112,17 @@ export default function Quiz({
         )}
       </div>
 
-      {/* Titre */}
+      {/* Titre (forcé noir, wrap, fallback) */}
       <div className="text-center">
-        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
-          {question.body}
+        <h2
+          className="
+            inline-block mx-4 my-6 md:my-12 px-6 md:px-24 py-4
+            bg-white rounded-2xl shadow
+            text-xl md:text-3xl font-extrabold leading-snug
+            !text-[#111827] whitespace-pre-wrap break-words
+          "
+        >
+          {question.body?.trim() ? question.body : '— Question —'}
         </h2>
       </div>
 
