@@ -40,8 +40,7 @@ export default function Quiz({
     const { error } = await supabase.from('answers').insert({
       participant_id: participantId,
       question_id: question.id,
-      // ⚠️ Si ta table `answers` a une colonne `choice_id`, garde la ligne suivante :
-      // choice_id: choice.id,
+      choice_id: choice.id, // ✅ on enregistre le choix sélectionné
       score,
     })
 
@@ -94,19 +93,19 @@ export default function Quiz({
       {/* Choix + Chrono de réponse 30s */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-stretch">
-          {/* Chrono visuel 30s (affichage uniquement ; la fin réelle est pilotée par l’Host via Realtime) */}
+          {/* Chrono visuel 30s */}
           <div className="flex justify-center mb-6">
             <CountdownCircleTimer
               isPlaying
-              duration={durationSec} // ✅ 30s via la constante
+              duration={durationSec} // 30s via la constante
               colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
               colorsTime={[
                 Math.floor(durationSec * 0.6),
                 Math.floor(durationSec * 0.25),
-                Math.floor(durationSec * 0.10),
+                Math.floor(durationSec * 0.1),
                 0,
               ]}
-              onComplete={() => undefined}
+              onComplete={() => undefined} // l'Host déclenche la fin réelle
             >
               {({ remainingTime }) => remainingTime}
             </CountdownCircleTimer>
