@@ -6,16 +6,12 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'SupaQuiz',
-  description: 'OSS Kahoot Alternative powered by Supabase',
+  description: 'Quiz en direct propulsé par Supabase (alternative à Kahoot)',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <body className={inter.className}>{children}</body>
     </html>
   )
