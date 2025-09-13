@@ -3,7 +3,7 @@
 import { QuizSet, supabase } from '@/types/types'
 import { useEffect, useState } from 'react'
 
-export default function Home() {
+export default function HostDashboard() {
   const [quizSet, setQuizSet] = useState<QuizSet[]>([])
 
   useEffect(() => {
@@ -13,63 +13,59 @@ export default function Home() {
         .select(`*, questions(*, choices(*))`)
         .order('created_at', { ascending: false })
       if (error) {
-        alert('Failed to fetch quiz sets')
+        console.error(error)
+        alert("Échec du chargement des quiz")
         return
       }
-      setQuizSet(data)
+      setQuizSet(data || [])
     }
     getQuizSets()
   }, [])
 
   const startGame = async (quizSetId: string) => {
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession()
-
-    if (!sessionData.session) {
-      await supabase.auth.signInAnonymously()
-    }
-
     const { data, error } = await supabase
       .from('games')
-      .insert({
-        quiz_set_id: quizSetId,
-      })
+      .insert({ quiz_set_id: quizSetId })
       .select()
       .single()
     if (error) {
       console.error(error)
-      alert('Failed to start game')
+      alert("Impossible de démarrer la partie")
       return
     }
-
     const gameId = data.id
     window.open(`/host/game/${gameId}`, '_blank', 'noopener,noreferrer')
   }
 
+  if (!quizSet.length) {
+    return (
+      <div className="text-center text-[#6B7280]">
+        Aucun quiz pour l’instant. Ajoute un set et reviens ici.
+      </div>
+    )
+  }
+
   return (
-    <>
-      {quizSet.map((quizSet) => (
-        <div
-          key={quizSet.id}
-          className="flex justify-start shadow my-4 mx-2 rounded"
-        >
-          <img className="h-28" src="/default.png" alt="default quiz image" />
-          <div className="p-2 flex flex-col justify-between items-stretch flex-grow">
-            <h2 className="font-bold">{quizSet.name}</h2>
-            <div className="flex justify-between items-end">
-              <div>{quizSet.questions.length} questions</div>
-              <div>
-                <button
-                  className="bg-green-500 text-white py-1 px-4 rounded"
-                  onClick={() => startGame(quizSet.id)}
-                >
-                  Start Game
-                </button>
-              </div>
+    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {quizSet.map((qs) => (
+        <div key={qs.id} className="bg-white rounded-2xl shadow p-4 flex">
+          <img className="h-28 w-28 rounded-lg object-cover mr-4" src="/default.png" alt="quiz" />
+          <div className="flex flex-col justify-between flex-grow">
+            <div>
+              <h2 className="font-extrabold text-lg text-[#111827]">{qs.name}</h2>
+              <div className="text-[#6B7280]">{qs.questions.length} questions</div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                className="bg-[#5E17EB] text-white py-2 px-4 rounded-xl font-semibold hover:opacity-90"
+                onClick={() => startGame(qs.id)}
+              >
+                Démarrer
+              </button>
             </div>
           </div>
         </div>
       ))}
-    </>
+    </div>
   )
 }
