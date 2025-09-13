@@ -4,20 +4,15 @@ import { Participant, supabase } from '@/types/types'
 import { useQRCode } from 'next-qrcode'
 import { useMemo, useState } from 'react'
 
-type Props = {
-  participants: Participant[]
-  gameId: string
-}
+type Props = { participants: Participant[]; gameId: string }
 
 export default function Lobby({ participants, gameId }: Props) {
   const { Canvas } = useQRCode()
 
-  // Domaine canonique : variable d'env (recommandé) sinon origin du navigateur
   const BASE =
     process.env.NEXT_PUBLIC_SITE_URL ||
     (typeof window !== 'undefined' ? window.location.origin : '')
 
-  // URL encodée dans le QR : route joueur /game/[id]
   const joinUrl = useMemo(() => `${BASE}/game/${gameId}`, [BASE, gameId])
 
   const [starting, setStarting] = useState(false)
@@ -45,11 +40,8 @@ export default function Lobby({ participants, gameId }: Props) {
   return (
     <div className="w-full max-w-6xl mx-auto">
       <div className="bg-black rounded-3xl shadow-2xl p-6 md:p-10 grid md:grid-cols-2 gap-8 items-center">
-        {/* Colonne gauche : bouton / infos / joueurs */}
         <div className="space-y-6">
-          <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-            Salle d’attente
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white">Salle d’attente</h1>
           <p className="text-white/70">
             Demandez aux invités de scanner le QR ou d’aller sur{' '}
             <span className="font-semibold">{BASE.replace('https://', '')}</span>{' '}
@@ -70,10 +62,7 @@ export default function Lobby({ participants, gameId }: Props) {
             </p>
             <div className="flex flex-wrap gap-2">
               {participants.map((p) => (
-                <span
-                  key={p.id}
-                  className="text-sm bg-white/10 px-3 py-1 rounded-full border border-white/10 text-white"
-                >
+                <span key={p.id} className="text-sm bg-white/10 px-3 py-1 rounded-full border border-white/10 text-white">
                   {p.nickname}
                 </span>
               ))}
@@ -81,7 +70,6 @@ export default function Lobby({ participants, gameId }: Props) {
           </div>
         </div>
 
-        {/* Colonne droite : QR code */}
         <div className="flex items-center justify-center">
           <Canvas
             text={joinUrl}
