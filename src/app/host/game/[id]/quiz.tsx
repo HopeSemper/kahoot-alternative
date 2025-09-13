@@ -23,7 +23,7 @@ export default function Quiz({
   const answerStateRef = useRef<Answer[]>()
   answerStateRef.current = answers
 
-  // Classement provisoire (TOP 10) cumulé après révélation (via vue game_results)
+  // Classement provisoire (TOP 10)
   const [leaderboard, setLeaderboard] = useState<
     { participant_id: string; nickname: string; total_score: number }[]
   >([])
@@ -41,13 +41,11 @@ export default function Quiz({
     if (error) alert(error.message)
   }
 
-  // ✅ useCallback pour satisfaire exhaustif deps
   const onTimeUp = useCallback(async () => {
     setIsAnswerRevealed(true)
     await supabase.from('games').update({ is_answer_revealed: true }).eq('id', gameId)
   }, [gameId])
 
-  // ✅ useCallback + normalisation des nulls venant de Supabase
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true)
     const { data, error } = await supabase
@@ -81,7 +79,7 @@ export default function Quiz({
 
     const t = setTimeout(() => setHasShownChoices(true), TIME_TIL_CHOICE_REVEAL)
 
-    // écoute des réponses en direct pour cette question
+    // Écoute des réponses en direct pour cette question
     const channel = supabase
       .channel('answers')
       .on(
@@ -89,8 +87,10 @@ export default function Quiz({
         { event: 'INSERT', schema: 'public', table: 'answers', filter: `question_id=eq.${question.id}` },
         (payload) => {
           setAnswers((cur) => [...cur, payload.new as Answer])
-          // si tous les participants ont répondu, on révèle automatiquement
-          if ((answerStateRef.current?.length ?? 0) + 1 === participants.length) onTimeUp()
+          // Si tous les participants ont répondu, on révèle automatiquement
+          if ((answerStateRef.current?.length ?? 0) + 1 === participants.length) {
+            void onTimeUp()
+          }
         }
       )
       .subscribe()
@@ -104,7 +104,7 @@ export default function Quiz({
   // À la révélation : charger le TOP 10 cumulé
   useEffect(() => {
     if (isAnswerRevealed) {
-      fetchLeaderboard()
+      void fetchLeaderboard()
     } else {
       setLeaderboard([])
     }
@@ -124,7 +124,7 @@ export default function Quiz({
         )}
       </div>
 
-      {/* Titre (forcé noir via style inline, wrap, largeur contrôlée) */}
+      {/* Titre (forcé noir via style inline) */}
       <div className="flex justify-center">
         <h2
           className="
@@ -157,7 +157,10 @@ export default function Quiz({
           <div className="flex justify-between items-center mb-6">
             <div className="text-5xl">
               <CountdownCircleTimer
-                onComplete={() => onTimeUp()}
+                onComplete={() => {
+                  // sync wrapper → pas d'async retourné
+                  void onTimeUp()
+                }}
                 isPlaying
                 duration={durationSec}
                 colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
