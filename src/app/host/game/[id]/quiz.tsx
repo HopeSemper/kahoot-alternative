@@ -22,22 +22,21 @@ export default function Quiz({
   const answerStateRef = useRef<Answer[]>()
   answerStateRef.current = answers
 
-  // NEW: classement provisoire (TOP 10) cumulé après révélation (via vue game_results)
+  // Classement provisoire
   type Row = { participant_id: string; nickname: string; total_score: number }
   const [leaderboard, setLeaderboard] = useState<Row[]>([])
   const [lbLoading, setLbLoading] = useState(false)
 
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
-  // ✅ NE PLUS UTILISER question.order POUR LA NAVIGATION
-  // On lit la valeur courante dans la table `games` et on l'incrémente
+  // Passer à la question suivante
   const getNextQuestion = useCallback(async () => {
-    // Récupère la séquence actuelle
     const { data: gameData, error: gameErr } = await supabase
       .from('games')
       .select('current_question_sequence')
       .eq('id', gameId)
       .single()
+
     if (gameErr || !gameData) {
       console.error(gameErr)
       alert('Impossible de lire la progression du jeu')
@@ -55,12 +54,13 @@ export default function Quiz({
     if (error) alert(error.message)
   }, [gameId, questionCount])
 
+  // Fin du chrono
   const onTimeUp = useCallback(async () => {
     setIsAnswerRevealed(true)
     await supabase.from('games').update({ is_answer_revealed: true }).eq('id', gameId)
   }, [gameId])
 
-  // Lecture du classement cumulé (inclut les joueurs à 0)
+  // Charger le classement
   const fetchLeaderboard = useCallback(async () => {
     setLbLoading(true)
     const { data, error } = await supabase
@@ -84,7 +84,6 @@ export default function Quiz({
   }, [gameId])
 
   useEffect(() => {
-    // reset de la question
     setIsAnswerRevealed(false)
     setHasShownChoices(false)
     setAnswers([])
@@ -92,7 +91,6 @@ export default function Quiz({
 
     const t = setTimeout(() => setHasShownChoices(true), TIME_TIL_CHOICE_REVEAL)
 
-    // écoute des réponses en direct pour cette question
     const channel = supabase
       .channel('answers')
       .on(
@@ -100,7 +98,6 @@ export default function Quiz({
         { event: 'INSERT', schema: 'public', table: 'answers', filter: `question_id=eq.${question.id}` },
         (payload) => {
           setAnswers((cur) => [...cur, payload.new as Answer])
-          // si tous les participants ont répondu, on révèle automatiquement
           if ((answerStateRef.current?.length ?? 0) + 1 === participants.length) {
             onTimeUp()
           }
@@ -114,18 +111,14 @@ export default function Quiz({
     }
   }, [question.id, participants.length, onTimeUp])
 
-  // À la révélation : charger le TOP 10 cumulé
   useEffect(() => {
-    if (isAnswerRevealed) {
-      fetchLeaderboard()
-    } else {
-      setLeaderboard([])
-    }
+    if (isAnswerRevealed) fetchLeaderboard()
+    else setLeaderboard([])
   }, [isAnswerRevealed, fetchLeaderboard])
 
   return (
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
-      {/* bouton suivant */}
+      {/* Bouton suivant */}
       <div className="absolute right-4 top-4">
         {isAnswerRevealed && (
           <button
@@ -144,7 +137,7 @@ export default function Quiz({
         </h2>
       </div>
 
-      {/* Image (facultative) */}
+      {/* Image */}
       {question.image_url && (
         <div className="mx-auto my-4 max-w-4xl px-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -157,7 +150,7 @@ export default function Quiz({
       )}
 
       <div className="flex-grow text-white px-8">
-        {/* timer + compteur réponses pendant la phase de réponse */}
+        {/* Timer */}
         {hasShownChoices && !isAnswerRevealed && (
           <div className="flex justify-between items-center mb-6">
             <div className="text-5xl">
@@ -172,7 +165,6 @@ export default function Quiz({
                   0,
                 ]}
                 onComplete={() => {
-                  // Type attendu: () => void | OnComplete
                   onTimeUp()
                   return { shouldRepeat: false } as OnComplete
                 }}
@@ -187,7 +179,7 @@ export default function Quiz({
           </div>
         )}
 
-        {/* histogramme à la révélation */}
+        {/* Histogramme + classement */}
         {isAnswerRevealed && (
           <>
             <div className="flex justify-center">
@@ -211,7 +203,7 @@ export default function Quiz({
               })}
             </div>
 
-            {/* Classement provisoire (TOP 10) sous l’histogramme */}
+            {/* Classement */}
             <div className="mt-8 w-full max-w-2xl mx-auto">
               <h3 className="text-center text-xl font-bold mb-3">
                 Classement (cumul après cette question)
@@ -223,7 +215,6 @@ export default function Quiz({
                 <div className="text-center text-white/70">Aucune réponse encore.</div>
               ) : (
                 <>
-                  {/* Podium top 3 */}
                   <div className="flex items-end justify-center gap-4 mb-6">
                     {leaderboard.slice(0, 3).map((r, idx) => {
                       const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'
@@ -242,7 +233,6 @@ export default function Quiz({
                     })}
                   </div>
 
-                  {/* 4ème+ en liste */}
                   <ul className="bg-white/10 rounded-xl divide-y divide-white/10">
                     {leaderboard.slice(3).map((r, i) => (
                       <li key={`${r.participant_id}-${i}`} className="flex justify-between px-4 py-3">
@@ -275,17 +265,7 @@ export default function Quiz({
                   <div>{choice.body}</div>
                   {isAnswerRevealed && (
                     <div>
-                      {choice.is_correct ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                          viewBox="0 0 24 24" strokeWidth={5} stroke="currentColor" className="w-6 h-6">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                          viewBox="0 0 24 24" strokeWidth={5} stroke="currentColor" className="w-6 h-6">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                        </svg>
-                      )}
+                      {choice.is_correct ? '✔️' : '❌'}
                     </div>
                   )}
                 </div>
@@ -295,11 +275,8 @@ export default function Quiz({
         </div>
       )}
 
-      {/* footer progression */}
       <div className="flex text-white py-2 px-4 items-center bg-black/70">
         <div className="text-2xl">
-          {/* On affiche l’ordre humain (1-based) mais la progression est pilotée en base */}
-          {/* Ici, `question.order` reste utile juste pour l’affichage si la colonne est bien renseignée. */}
           {question.order + 1}/{questionCount}
         </div>
       </div>
