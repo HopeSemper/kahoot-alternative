@@ -20,6 +20,20 @@ export default function Quiz({
   const [hasShownChoices, setHasShownChoices] = useState(false)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
 
+  // Verrouille le scroll et remonte en haut à chaque question
+  useEffect(() => {
+    // bloquer le body
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    // forcer en haut
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [question.id])
+
   // reset à chaque nouvelle question
   useEffect(() => {
     setChosenChoice(null)
@@ -54,16 +68,14 @@ export default function Quiz({
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
   return (
-    // 100svh = hauteur réelle de l'écran mobile (barres iOS/Android incluses)
-    // overflow-hidden pour éviter le scroll de page
+    // Hauteur verrouillée à l'écran, sans overscroll ni scroll
     <div
-      className="min-h-[100svh] flex flex-col items-stretch bg-[#111827] text-white relative overflow-hidden"
-      // on réserve un peu d'espace en bas pour ne pas cacher le contenu derrière le footer fixe
-      style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
+      className="h-[100svh] flex flex-col items-stretch bg-[#111827] text-white relative overflow-hidden overscroll-none"
+      style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
     >
-      {/* Titre question */}
+      {/* Titre question (marges réduites) */}
       <div className="text-center">
-        <h2 className="pb-3 text-xl bg-white text-[#111827] font-bold mx-3 my-6 p-3 rounded inline-block md:text-3xl md:px-24">
+        <h2 className="pb-2 text-xl bg-white text-[#111827] font-bold mx-3 my-4 p-3 rounded inline-block md:text-3xl md:px-24">
           {question.body}
         </h2>
       </div>
@@ -79,7 +91,7 @@ export default function Quiz({
 
       {/* Compte à rebours avant affichage des choix */}
       {!hasShownChoices && !isAnswerRevealed && (
-        <div className="flex-grow text-transparent flex justify-center items-start pt-2">
+        <div className="flex-grow text-transparent flex justify-center items-start pt-1">
           <CountdownCircleTimer
             onComplete={() => {
               setHasShownChoices(true)
@@ -96,7 +108,7 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Choix + Chrono 30s */}
+      {/* Choix + Chrono */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-center">
           {/* Chrono compact */}
@@ -117,7 +129,7 @@ export default function Quiz({
             </CountdownCircleTimer>
           </div>
 
-          {/* Grille des choix — texte multi-ligne + hauteur auto pour éviter la coupure */}
+          {/* Grille des choix — multi-ligne */}
           <div className="w-full flex justify-between flex-wrap p-2 gap-y-2 max-w-3xl">
             {question.choices.map((choice, index) => (
               <div key={choice.id} className="w-1/2 p-1">
@@ -137,7 +149,6 @@ export default function Quiz({
                     ${isAnswerRevealed && !choice.is_correct ? 'opacity-60' : ''}
                   `}
                 >
-                  {/* wrap propre + coupure possible sur mots longs */}
                   <div className="whitespace-normal break-words leading-snug text-left">
                     {choice.body}
                   </div>
@@ -149,7 +160,7 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Résultat de la question */}
+      {/* Résultat */}
       {isAnswerRevealed && (
         <div className="flex-grow flex justify-center items-center flex-col">
           <h2 className="text-2xl text-center pb-2">
@@ -165,7 +176,7 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Footer progression — FIXE + safe area iOS */}
+      {/* Footer progression — fixe */}
       <div
         className="fixed left-0 right-0 bottom-0 z-30 bg-black/80 text-white backdrop-blur"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)' }}
