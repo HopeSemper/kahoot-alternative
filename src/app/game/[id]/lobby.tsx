@@ -1,7 +1,20 @@
 'use client'
 
 import { Participant, supabase } from '@/types/types'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
+
+const STORAGE_KEY = 'sq-participant'
+
+function readSaved() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+function saveSaved(payload: { gameId: string; participantId: string; nickname: string }) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+}
 
 export default function Lobby({
   gameId,
@@ -13,6 +26,38 @@ export default function Lobby({
   const [participant, setParticipant] = useState<Participant | null>(null)
   const [nickname, setNickname] = useState('')
   const [sending, setSending] = useState(false)
+
+  // Si un joueur revient sur le lobby alors qu'il est déjà inscrit : restauration automatique
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const saved = readSaved()
+      if (!saved || saved.gameId !== gameId) return
+
+      // Vérifie que le participant existe encore
+      const { data } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('id', saved.participantId)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (data?.id) {
+        const p = data as Participant
+        setParticipant(p)
+        onRegisterCompleted(p)
+      } else {
+        // Rien en base : on laisse l'écran d’inscription (page.tsx gèrera aussi la recréation si besoin)
+        // On peut garder le pseudo en placeholder
+        setNickname(saved.nickname ?? '')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [gameId, onRegisterCompleted])
 
   const onFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -38,8 +83,13 @@ export default function Lobby({
       return
     }
 
-    setParticipant(data as Participant)
-    onRegisterCompleted(data as Participant)
+    const p = data as Participant
+    setParticipant(p)
+
+    // ✅ persiste pour survivre à un refresh
+    saveSaved({ gameId, participantId: p.id, nickname: p.nickname })
+
+    onRegisterCompleted(p)
   }
 
   return (
