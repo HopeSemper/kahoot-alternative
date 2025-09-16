@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { RealtimeChannel } from '@supabase/supabase-js'
-import { Choice, Game, Participant, Question, supabase } from '@/types/types'
+import { Game, Participant, Question, supabase } from '@/types/types'
 import Lobby from './lobby'
 import Quiz from './quiz'
 
@@ -231,13 +231,21 @@ export default function GamePlayerPage({
     return () => clearInterval(id)
   }, [currentScreen, fetchGame])
 
+  // ⬅️ Toujours afficher le haut de page quand on arrive sur le quiz ou qu’on change de question
+  useEffect(() => {
+    if (currentScreen === Screens.quiz) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    }
+  }, [currentScreen, currentQuestionSequence])
+
   return (
-    <main className="min-h-screen bg-[#111827] text-white">
+    // ⬇️ Pas de scroll global, la vue est exactement à la taille de l’écran
+    <main className="h-screen bg-[#111827] text-white overflow-hidden">
       {/* bandeau violet style Kahoot */}
       <div className="h-2 w-full bg-[#5E17EB]" />
 
       {currentScreen === Screens.lobby && (
-        <section className="flex items-center justify-center min-h-[calc(100vh-0.5rem)] p-6">
+        <section className="flex items-center justify-center h-[calc(100vh-0.5rem)] p-6 overflow-hidden">
           <div className="w-full max-w-2xl bg-white text-[#111827] rounded-2xl shadow-2xl p-6">
             <h1 className="text-2xl md:text-3xl font-extrabold mb-2">
               Rejoins la partie
@@ -251,7 +259,7 @@ export default function GamePlayerPage({
       )}
 
       {currentScreen === Screens.quiz && questions && participant && (
-        <section className="min-h-[calc(100vh-0.5rem)] p-4 md:p-8 overflow-hidden">
+        <section className="h-[calc(100vh-0.5rem)] p-4 md:p-8 overflow-hidden">
           <Quiz
             question={questions[currentQuestionSequence]}
             questionCount={questions.length}
@@ -270,7 +278,7 @@ export default function GamePlayerPage({
 
 function Results({ participant }: { participant: Participant }) {
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-0.5rem)] text-center p-6">
+    <div className="flex justify-center items-center h-[calc(100vh-0.5rem)] text-center p-6">
       <div className="p-8 bg-white text-[#111827] rounded-2xl shadow-2xl">
         <h2 className="text-2xl md:text-3xl font-extrabold mb-2">
           Bravo, {participant.nickname} 🎉
