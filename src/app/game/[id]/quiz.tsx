@@ -24,7 +24,8 @@ export default function Quiz({
   useEffect(() => {
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    window.scrollTo({ top: 0, behavior: 'auto' })
+    // forcer tout en haut (iOS incl.)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     document.documentElement.scrollTop = 0
     return () => {
       document.body.style.overflow = prevOverflow
@@ -65,111 +66,119 @@ export default function Quiz({
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
   return (
+    // Hauteur verrouillée à l'écran, pas de scroll global
     <div
-      className="h-[100svh] flex flex-col items-stretch bg-[#111827] text-white relative overflow-hidden overscroll-none"
-      style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      className="h-[100svh] flex flex-col bg-[#111827] text-white relative overflow-hidden overscroll-none"
+      style={{
+        // Espace pour la zone sûre iOS en haut ET le footer en bas
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+        paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+      }}
     >
-      {/* Titre question (marges réduites) */}
-      <div className="text-center">
-        <h2 className="pb-2 text-xl bg-white text-[#111827] font-bold mx-3 my-4 p-3 rounded inline-block md:text-3xl md:px-24">
+      {/* Titre sticky : reste toujours visible en haut */}
+      <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 flex justify-center px-3">
+        <h2 className="pb-2 text-xl bg-white text-[#111827] font-bold my-2 p-3 rounded inline-block md:text-3xl md:px-24 max-w-[920px] w-full text-center">
           {question.body}
         </h2>
       </div>
 
-      {/* Attente autres joueurs */}
-      {!isAnswerRevealed && chosenChoice && (
-        <div className="flex-grow flex justify-center items-center">
-          <div className="text-white text-lg md:text-2xl text-center p-3">
-            En attente des autres joueurs…
+      {/* Corps : contenu sous le titre, aligné en haut */}
+      <div className="flex-1 flex flex-col items-center justify-start px-2">
+        {/* Attente autres joueurs */}
+        {!isAnswerRevealed && chosenChoice && (
+          <div className="flex-1 w-full flex justify-center items-center">
+            <div className="text-white text-lg md:text-2xl text-center p-3">
+              En attente des autres joueurs…
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Compte à rebours avant affichage des choix */}
-      {!hasShownChoices && !isAnswerRevealed && (
-        <div className="flex-grow text-transparent flex justify-center items-start pt-1">
-          <CountdownCircleTimer
-            onComplete={() => {
-              setHasShownChoices(true)
-              setQuestionStartTime(Date.now())
-            }}
-            isPlaying
-            duration={TIME_TIL_CHOICE_REVEAL / 1000}
-            colors={['#ffffff', '#ffffff', '#ffffff', '#ffffff']}
-            trailColor={'transparent' as ColorFormat}
-            colorsTime={[7, 5, 2, 0]}
-          >
-            {({ remainingTime }) => remainingTime}
-          </CountdownCircleTimer>
-        </div>
-      )}
-
-      {/* Choix + Chrono */}
-      {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
-        <div className="flex-grow flex flex-col items-center">
-          <div className="mb-3">
+        {/* Compte à rebours avant affichage des choix */}
+        {!hasShownChoices && !isAnswerRevealed && !chosenChoice && (
+          <div className="w-full flex justify-center pt-1">
             <CountdownCircleTimer
+              onComplete={() => {
+                setHasShownChoices(true)
+                setQuestionStartTime(Date.now())
+              }}
               isPlaying
-              duration={durationSec}
-              colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
-              colorsTime={[
-                Math.floor(durationSec * 0.6),
-                Math.floor(durationSec * 0.25),
-                Math.floor(durationSec * 0.1),
-                0,
-              ]}
-              onComplete={() => undefined}
+              duration={TIME_TIL_CHOICE_REVEAL / 1000}
+              colors={['#ffffff', '#ffffff', '#ffffff', '#ffffff']}
+              trailColor={'transparent' as ColorFormat}
+              colorsTime={[7, 5, 2, 0]}
             >
               {({ remainingTime }) => remainingTime}
             </CountdownCircleTimer>
           </div>
+        )}
 
-          {/* Grille des choix — multi-ligne */}
-          <div className="w-full flex justify-between flex-wrap p-2 gap-y-2 max-w-3xl">
-            {question.choices.map((choice, index) => (
-              <div key={choice.id} className="w-1/2 p-1">
-                <button
-                  onClick={() => answer(choice)}
-                  disabled={chosenChoice !== null || isAnswerRevealed}
-                  className={`px-3 py-4 w-full text-lg md:text-2xl md:font-bold rounded text-white flex items-center justify-between gap-2
-                    ${
-                      index === 0
-                        ? 'bg-red-500'
-                        : index === 1
-                        ? 'bg-blue-500'
-                        : index === 2
-                        ? 'bg-yellow-500 text-black'
-                        : 'bg-green-500'
-                    }
-                    ${isAnswerRevealed && !choice.is_correct ? 'opacity-60' : ''}
-                  `}
-                >
-                  <div className="whitespace-normal break-words leading-snug text-left">
-                    {choice.body}
-                  </div>
-                  {isAnswerRevealed && <div>{choice.is_correct ? '✔️' : '❌'}</div>}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Choix + Chrono */}
+        {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
+          <>
+            <div className="mt-2 mb-3">
+              <CountdownCircleTimer
+                isPlaying
+                duration={durationSec}
+                colors={['#5E17EB', '#FBBF24', '#EF4444', '#EF4444']}
+                colorsTime={[
+                  Math.floor(durationSec * 0.6),
+                  Math.floor(durationSec * 0.25),
+                  Math.floor(durationSec * 0.1),
+                  0,
+                ]}
+                onComplete={() => undefined}
+              >
+                {({ remainingTime }) => remainingTime}
+              </CountdownCircleTimer>
+            </div>
 
-      {/* Résultat */}
-      {isAnswerRevealed && (
-        <div className="flex-grow flex justify-center items-center flex-col">
-          <h2 className="text-2xl text-center pb-2">
-            {chosenChoice?.is_correct ? 'Bonne réponse !' : 'Mauvaise réponse'}
-          </h2>
-          <div
-            className={`text-white rounded-full p-4 ${
-              chosenChoice?.is_correct ? 'bg-green-500' : 'bg-red-500'
-            }`}
-          >
-            {chosenChoice?.is_correct ? '✔️' : '❌'}
+            {/* Grille des choix — multi-ligne */}
+            <div className="w-full max-w-3xl flex justify-between flex-wrap p-2 gap-y-2">
+              {question.choices.map((choice, index) => (
+                <div key={choice.id} className="w-1/2 p-1">
+                  <button
+                    onClick={() => answer(choice)}
+                    disabled={chosenChoice !== null || isAnswerRevealed}
+                    className={`px-3 py-4 w-full text-lg md:text-2xl md:font-bold rounded text-white flex items-center justify-between gap-2
+                      ${
+                        index === 0
+                          ? 'bg-red-500'
+                          : index === 1
+                          ? 'bg-blue-500'
+                          : index === 2
+                          ? 'bg-yellow-500 text-black'
+                          : 'bg-green-500'
+                      }
+                      ${isAnswerRevealed && !choice.is_correct ? 'opacity-60' : ''}
+                    `}
+                  >
+                    <div className="whitespace-normal break-words leading-snug text-left">
+                      {choice.body}
+                    </div>
+                    {isAnswerRevealed && <div>{choice.is_correct ? '✔️' : '❌'}</div>}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Résultat */}
+        {isAnswerRevealed && (
+          <div className="flex-1 w-full flex justify-center items-center flex-col">
+            <h2 className="text-2xl text-center pb-2">
+              {chosenChoice?.is_correct ? 'Bonne réponse !' : 'Mauvaise réponse'}
+            </h2>
+            <div
+              className={`text-white rounded-full p-4 ${
+                chosenChoice?.is_correct ? 'bg-green-500' : 'bg-red-500'
+              }`}
+            >
+              {chosenChoice?.is_correct ? '✔️' : '❌'}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Footer progression — fixe */}
       <div
