@@ -22,13 +22,10 @@ export default function Quiz({
 
   // Verrouille le scroll et remonte en haut à chaque question
   useEffect(() => {
-    // bloquer le body
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    // forcer en haut
     window.scrollTo({ top: 0, behavior: 'auto' })
     document.documentElement.scrollTop = 0
-
     return () => {
       document.body.style.overflow = prevOverflow
     }
@@ -68,7 +65,6 @@ export default function Quiz({
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
   return (
-    // Hauteur verrouillée à l'écran, sans overscroll ni scroll
     <div
       className="h-[100svh] flex flex-col items-stretch bg-[#111827] text-white relative overflow-hidden overscroll-none"
       style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
@@ -111,7 +107,6 @@ export default function Quiz({
       {/* Choix + Chrono */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-center">
-          {/* Chrono compact */}
           <div className="mb-3">
             <CountdownCircleTimer
               isPlaying
