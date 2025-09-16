@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import useWindowSize from 'react-use/lib/useWindowSize'
 import { GameResult, QuizSet, supabase } from '@/types/types'
 
-// Charge Confetti côté client uniquement (évite des erreurs d'hydratation)
+// Confetti côté client uniquement
 const Confetti = dynamic(() => import('react-confetti'), { ssr: false })
 
 type DbRow = {
@@ -25,38 +25,45 @@ export default function Results({
   const [rows, setRows] = useState<DbRow[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const retriedOnce = useRef(false)
 
   const { width, height } = useWindowSize()
 
   // Lecture sécurisée des résultats (vue game_results)
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      setErr(null)
-      const { data, error } = await supabase
-        .from('game_results')
-        .select()
-        .eq('game_id', gameId)
-        .order('total_score', { ascending: false })
+  const loadResults = async () => {
+    setLoading(true)
+    setErr(null)
+    const { data, error } = await supabase
+      .from('game_results')
+      .select()
+      .eq('game_id', gameId)
+      .order('total_score', { ascending: false })
 
-      if (cancelled) return
-      if (error) {
-        console.error('[results] fetch error:', error)
-        setErr("Impossible de charger les résultats.")
-        setRows([])
-      } else {
-        setRows(Array.isArray(data) ? (data as DbRow[]) : [])
-      }
-      setLoading(false)
-    })()
-
-    return () => {
-      cancelled = true
+    if (error) {
+      console.error('[results] fetch error:', error)
+      setErr("Impossible de charger les résultats.")
+      setRows([])
+    } else {
+      setRows(Array.isArray(data) ? (data as DbRow[]) : [])
     }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    retriedOnce.current = false
+    loadResults()
   }, [gameId])
 
-  // Sanitize pour le rendu (jamais de null dans l’UI)
+  // Petit retry 1s si la liste est vide (dernières réponses qui arrivent)
+  useEffect(() => {
+    if (!loading && !err && rows.length === 0 && !retriedOnce.current) {
+      retriedOnce.current = true
+      const t = setTimeout(() => loadResults(), 1000)
+      return () => clearTimeout(t)
+    }
+  }, [loading, err, rows.length])
+
+  // Sanitize pour le rendu
   const leaderboard: GameResult[] = useMemo(() => {
     return rows
       .map((r, i) => ({
@@ -65,10 +72,11 @@ export default function Results({
         nickname: (r.nickname ?? 'Joueur') as string,
         total_score: Number.isFinite(r.total_score ?? 0) ? (r.total_score as number) : 0,
       }))
-      .sort((a, b) => b.total_score - a.total_score)
+      // tri secondaire par pseudo pour des ex æquo stables
+      .sort((a, b) => (b.total_score - a.total_score) || a.nickname.localeCompare(b.nickname))
   }, [rows, gameId])
 
-  // Sécurité supplémentaire : dimensions Confetti valides
+  // Dimensions Confetti sûres
   const safeWidth = Number.isFinite(width) && width > 0 ? width : 1
   const safeHeight = Number.isFinite(height) && height > 0 ? height : 1
 
@@ -141,7 +149,7 @@ export default function Results({
             </div>
           </div>
 
-          {/* Confettis (safe sizes) */}
+          {/* Confettis */}
           <Confetti width={safeWidth} height={safeHeight} recycle={false} numberOfPieces={400} />
         </>
       )}
