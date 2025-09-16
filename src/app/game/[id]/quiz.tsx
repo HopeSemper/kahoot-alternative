@@ -111,14 +111,16 @@ export default function Quiz({
             </CountdownCircleTimer>
           </div>
 
-          {/* Choix rapprochés (moins de padding/marges) */}
+          {/* Choix rapprochés, multi-lignes, auto-hauteur */}
           <div className="w-full flex justify-between flex-wrap p-2 gap-y-2 max-w-3xl">
             {question.choices.map((choice, index) => (
               <div key={choice.id} className="w-1/2 p-1">
                 <button
                   onClick={() => answer(choice)}
                   disabled={chosenChoice !== null || isAnswerRevealed}
-                  className={`px-3 py-4 w-full text-lg md:text-2xl md:font-bold rounded text-white flex justify-between
+                  className={`px-3 py-4 w-full text-base md:text-2xl md:font-bold rounded text-white
+                               flex items-center justify-between gap-3 text-left
+                               min-h-[64px] md:min-h-[72px] leading-snug
                     ${
                       index === 0
                         ? 'bg-red-500'
@@ -131,8 +133,17 @@ export default function Quiz({
                     ${isAnswerRevealed && !choice.is_correct ? 'opacity-60' : ''}
                   `}
                 >
-                  <div className="truncate">{choice.body}</div>
-                  {isAnswerRevealed && <div>{choice.is_correct ? '✔️' : '❌'}</div>}
+                  {/* Texte multi-lignes sans troncature */}
+                  <span className="flex-1 break-words whitespace-normal">
+                    {choice.body}
+                  </span>
+
+                  {/* Icône résultat à droite (quand révélé) */}
+                  {isAnswerRevealed && (
+                    <span className="shrink-0 text-xl md:text-2xl">
+                      {choice.is_correct ? '✔️' : '❌'}
+                    </span>
+                  )}
                 </button>
               </div>
             ))}
