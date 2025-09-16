@@ -13,6 +13,18 @@ enum Screens {
 }
 
 const POLL_MS = 7000 // filet de sécurité: polling toutes les 7s pendant la partie
+const STORAGE_KEY = 'sq-participant'
+
+function readSaved() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+function saveSaved(payload: { gameId: string; participantId: string; nickname: string }) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+}
 
 export default function GamePlayerPage({
   params: { id: gameId },
@@ -35,6 +47,7 @@ export default function GamePlayerPage({
   // callback depuis le Lobby quand le joueur est inscrit
   const onRegisterCompleted = (p: Participant) => {
     setParticipant(p)
+    saveSaved({ gameId, participantId: p.id, nickname: p.nickname })
     void fetchGame()
   }
 
@@ -79,6 +92,62 @@ export default function GamePlayerPage({
     }
   }, [gameId, fetchQuestions, questions])
 
+  // Restauration auto au premier montage (si on a déjà un participant pour ce gameId)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const saved = readSaved()
+      if (!saved || saved.gameId !== gameId) return
+
+      // Existe encore ?
+      const { data } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('id', saved.participantId)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (data?.id) {
+        const p = data as Participant
+        setParticipant(p)
+        saveSaved({ gameId, participantId: p.id, nickname: p.nickname ?? saved.nickname ?? 'Joueur' })
+      } else {
+        // Recrée silencieusement (pseudo possiblement déjà pris -> suffixe)
+        const nick = (saved.nickname ?? 'Joueur').slice(0, 20)
+        let attemptNick = nick
+        let recreated: Participant | null = null
+
+        for (let i = 0; i < 2; i++) {
+          const { data: ins, error } = await supabase
+            .from('participants')
+            .insert({ game_id: gameId, nickname: attemptNick })
+            .select()
+            .single()
+
+          if (!error && ins?.id) {
+            recreated = ins as Participant
+            break
+          }
+          // si doublon, on tente un suffixe
+          attemptNick = `${nick}-${Math.floor(Math.random() * 900 + 100)}`
+        }
+
+        if (recreated) {
+          setParticipant(recreated)
+          saveSaved({ gameId, participantId: recreated.id, nickname: recreated.nickname })
+        }
+      }
+
+      // On synchronise ensuite l'état du jeu
+      await fetchGame()
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [gameId, fetchGame])
+
   // initial fetch au montage
   useEffect(() => {
     void fetchGame()
@@ -86,7 +155,6 @@ export default function GamePlayerPage({
 
   // abonnement realtime aux mises à jour du jeu
   useEffect(() => {
-    // nettoie l'ancien channel si existe
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current)
       channelRef.current = null
@@ -154,7 +222,6 @@ export default function GamePlayerPage({
     if (currentScreen === Screens.lobby) return
 
     const id = setInterval(() => {
-      // si on n’a pas reçu d’event realtime récemment, on force une resync
       const elapsed = Date.now() - lastRealtimeAt.current
       if (elapsed > POLL_MS * 1.2) {
         void fetchGame()
@@ -184,7 +251,7 @@ export default function GamePlayerPage({
       )}
 
       {currentScreen === Screens.quiz && questions && participant && (
-        <section className="min-h-[calc(100vh-0.5rem)] p-4 md:p-8">
+        <section className="min-h-[calc(100vh-0.5rem)] p-4 md:p-8 overflow-hidden">
           <Quiz
             question={questions[currentQuestionSequence]}
             questionCount={questions.length}
