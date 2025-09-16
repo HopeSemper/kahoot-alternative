@@ -57,7 +57,7 @@ export default function Quiz({
     <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
       {/* Titre question */}
       <div className="text-center">
-        <h2 className="pb-3 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
+        <h2 className="pb-4 text-2xl bg-white text-[#111827] font-bold mx-4 my-6 md:my-12 p-4 rounded inline-block md:text-3xl md:px-24">
           {question.body}
         </h2>
       </div>
@@ -93,8 +93,8 @@ export default function Quiz({
       {/* Choix + Chrono de réponse 30s */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-stretch">
-          {/* Chrono visuel 30s (marge réduite) */}
-          <div className="flex justify-center mb-2">
+          {/* Chrono visuel 30s — marge réduite */}
+          <div className="flex justify-center mb-3">
             <CountdownCircleTimer
               isPlaying
               duration={durationSec} // 30s via la constante
@@ -111,14 +111,16 @@ export default function Quiz({
             </CountdownCircleTimer>
           </div>
 
-          {/* (on enlève le flex-grow qui poussait les boutons trop bas) */}
-          <div className="flex justify-between flex-wrap p-4 gap-y-1">
+          {/* On garde le spacer pour une mise en page stable */}
+          <div className="flex-grow" />
+
+          <div className="flex justify-between flex-wrap p-4 gap-y-2">
             {question.choices.map((choice, index) => (
               <div key={choice.id} className="w-1/2 p-1">
                 <button
                   onClick={() => answer(choice)}
                   disabled={chosenChoice !== null || isAnswerRevealed}
-                  className={`px-4 py-4 w-full text-lg rounded text-white flex justify-between md:text-2xl md:font-bold
+                  className={`px-4 py-5 w-full text-xl rounded text-white flex justify-between md:text-2xl md:font-bold
                     ${
                       index === 0
                         ? 'bg-red-500'
