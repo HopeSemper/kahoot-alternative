@@ -20,7 +20,7 @@ export default function Quiz({
   const [hasShownChoices, setHasShownChoices] = useState(false)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
 
-  // Reset à chaque nouvelle question
+  // reset à chaque nouvelle question
   useEffect(() => {
     setChosenChoice(null)
     setHasShownChoices(false)
@@ -40,7 +40,7 @@ export default function Quiz({
     const { error } = await supabase.from('answers').insert({
       participant_id: participantId,
       question_id: question.id,
-      choice_id: choice.id, // on enregistre le choix sélectionné
+      choice_id: choice.id,
       score,
     })
 
@@ -54,15 +54,21 @@ export default function Quiz({
   const durationSec = Math.floor(QUESTION_ANSWER_TIME / 1000)
 
   return (
-    <div className="min-h-screen flex flex-col items-stretch bg-[#111827] text-white relative">
-      {/* Titre question (marges réduites pour mobile) */}
+    // 100svh = hauteur réelle de l'écran mobile (barres iOS/Android incluses)
+    // overflow-hidden pour éviter le scroll de page
+    <div
+      className="min-h-[100svh] flex flex-col items-stretch bg-[#111827] text-white relative overflow-hidden"
+      // on réserve un peu d'espace en bas pour ne pas cacher le contenu derrière le footer fixe
+      style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
+    >
+      {/* Titre question */}
       <div className="text-center">
         <h2 className="pb-3 text-xl bg-white text-[#111827] font-bold mx-3 my-6 p-3 rounded inline-block md:text-3xl md:px-24">
           {question.body}
         </h2>
       </div>
 
-      {/* Attente des autres joueurs */}
+      {/* Attente autres joueurs */}
       {!isAnswerRevealed && chosenChoice && (
         <div className="flex-grow flex justify-center items-center">
           <div className="text-white text-lg md:text-2xl text-center p-3">
@@ -71,7 +77,7 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Compte à rebours avant affichage des choix (compact) */}
+      {/* Compte à rebours avant affichage des choix */}
       {!hasShownChoices && !isAnswerRevealed && (
         <div className="flex-grow text-transparent flex justify-center items-start pt-2">
           <CountdownCircleTimer
@@ -90,10 +96,10 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Choix + Chrono 30s (espacements réduits) */}
+      {/* Choix + Chrono 30s */}
       {hasShownChoices && !isAnswerRevealed && !chosenChoice && (
         <div className="flex-grow flex flex-col items-center">
-          {/* Chrono visuel compact */}
+          {/* Chrono compact */}
           <div className="mb-3">
             <CountdownCircleTimer
               isPlaying
@@ -105,22 +111,20 @@ export default function Quiz({
                 Math.floor(durationSec * 0.1),
                 0,
               ]}
-              onComplete={() => undefined} // l’Host déclenche la fin réelle
+              onComplete={() => undefined}
             >
               {({ remainingTime }) => remainingTime}
             </CountdownCircleTimer>
           </div>
 
-          {/* Choix rapprochés, multi-lignes, auto-hauteur */}
+          {/* Grille des choix — texte multi-ligne + hauteur auto pour éviter la coupure */}
           <div className="w-full flex justify-between flex-wrap p-2 gap-y-2 max-w-3xl">
             {question.choices.map((choice, index) => (
               <div key={choice.id} className="w-1/2 p-1">
                 <button
                   onClick={() => answer(choice)}
                   disabled={chosenChoice !== null || isAnswerRevealed}
-                  className={`px-3 py-4 w-full text-base md:text-2xl md:font-bold rounded text-white
-                               flex items-center justify-between gap-3 text-left
-                               min-h-[64px] md:min-h-[72px] leading-snug
+                  className={`px-3 py-4 w-full text-lg md:text-2xl md:font-bold rounded text-white flex items-center justify-between gap-2
                     ${
                       index === 0
                         ? 'bg-red-500'
@@ -133,17 +137,11 @@ export default function Quiz({
                     ${isAnswerRevealed && !choice.is_correct ? 'opacity-60' : ''}
                   `}
                 >
-                  {/* Texte multi-lignes sans troncature */}
-                  <span className="flex-1 break-words whitespace-normal">
+                  {/* wrap propre + coupure possible sur mots longs */}
+                  <div className="whitespace-normal break-words leading-snug text-left">
                     {choice.body}
-                  </span>
-
-                  {/* Icône résultat à droite (quand révélé) */}
-                  {isAnswerRevealed && (
-                    <span className="shrink-0 text-xl md:text-2xl">
-                      {choice.is_correct ? '✔️' : '❌'}
-                    </span>
-                  )}
+                  </div>
+                  {isAnswerRevealed && <div>{choice.is_correct ? '✔️' : '❌'}</div>}
                 </button>
               </div>
             ))}
@@ -167,10 +165,15 @@ export default function Quiz({
         </div>
       )}
 
-      {/* Footer progression */}
-      <div className="flex text-white py-2 px-4 items-center bg-black/70">
-        <div className="text-2xl">
-          {question.order + 1}/{questionCount}
+      {/* Footer progression — FIXE + safe area iOS */}
+      <div
+        className="fixed left-0 right-0 bottom-0 z-30 bg-black/80 text-white backdrop-blur"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)' }}
+      >
+        <div className="py-2 px-4 text-center">
+          <span className="text-2xl">
+            {question.order + 1}/{questionCount}
+          </span>
         </div>
       </div>
     </div>
